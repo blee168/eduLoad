@@ -2,8 +2,8 @@
 EXAMPLE USAGE
 =============
 
-    $ python3 cldemo.py -hn <HOSTNAME> -u <USERNAME> -p <PASSWORD> 
-    -n <DATABASENAME>
+    $ python3 cldemo.py -hn <LOCALHOST> -u root -p <PWD> -n <DATABASE NAME>  
+    -dla <DATALIST ACCESSOR> -url <URL> -t <TABLE NAME> -pk <PRIMARY KEY>
 """
 
 import argparse
@@ -42,5 +42,5 @@ my_loader = Loader(db = mydb, primary_key = args.primary_key,
                    data_list_accessor = args.dla, 
                    table_name=args.table_name, url = args.url)
 
-my_loader.mass_initial_populate()
+my_loader.mass_populate()
 

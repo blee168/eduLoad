@@ -10,8 +10,8 @@ from json import loads
 
 def string_typer(s):
     """
-    Input: string
-    Output: string of either "string", "int", "float" for specifying string,
+    INPUT: string
+    OUTPUT: string of either "string", "int", "float" for specifying string,
     integer, or decimal. Defaults to "str".
     """
     
@@ -43,7 +43,12 @@ def string_typer(s):
         return "int"
     
 def list_typer(values):
-    
+    """
+    INPUT: list
+    OUTPUT: the most restrictive applicable type describing the whole list,
+    specified as one of the strings "string", "float", or "int". 
+    """
+
     types = []
     for v in values:
         types.append(string_typer(v))
@@ -56,7 +61,6 @@ def list_typer(values):
         return "int"
 
 class Loader:
-
     """
     Class extracting educationdata.urban.org data to a local MySQL database.
     """
@@ -88,7 +92,6 @@ class Loader:
         # path to the actual list of JSON data objects, rather than a single
         # string.
 
-        # Generalize data['results']
         self.data = loads(response.read())[self.data_list_accessor]
         if len(self.data) == 0:
             sys.exit("Dataset appears to be empty.")
@@ -97,6 +100,7 @@ class Loader:
 
         try:
             self.cursor.execute("SELECT * FROM " + self.table_name + ";")
+            self.table_exists = True
     
         except:
             self.cursor.execute('CREATE TABLE ' + self.table_name + '(' + self.table_header() + ')')
@@ -106,8 +110,8 @@ class Loader:
     def table_header(self):
         """
         Automates creation of initial table creation string for a MySQL Table.
-        Input: JSON dataset structured such that dataset[i] is one dict object.
-        Output: String of column names and datatypes for use in a CREATE TABLE
+        INPUT: JSON dataset structured such that dataset[i] is one dict object.
+        OUTPUT: String of column names and datatypes for use in a CREATE TABLE
             string for MySQL cursor execution.
 
         """
@@ -132,61 +136,64 @@ class Loader:
         return header[:-2]
 
 
-    def mass_initial_populate(self):
-        print("Now populating with initial entries...")
+    def mass_populate(self):
+        """
+        Calls self.insert() to automatically load data straight from the API.
+        """
+        print("Now loading " + str(len(self.data)) + " entries.")
         for i in tqdm(range(int(len(self.data)))):
-            self.initial_load(self.data[i])
+            self.insert(self.data[i])
             
 
 
-    def initial_load(self, entry):    
-        header = "("
-        for k in list(entry.keys()):
-            header += k + ", "
+    def insert(self, entry):    
+        """
+        Load a single entry. Checks if table exists. 
+        If exists, then cols should be derived from something like 
+            crs.execute("SELECT * FROM " + table_name + " LIMIT 1;")
+        INPUT: dict
+        """
+        if self.table_exists:
+            self.cursor.execute("SELECT * FROM " + self.table_name + " LIMIT 1;")
+            derived_keys = self.cursor.column_names
 
-        header = header[:-2] + ")"
+            col_str = "("
+            for c in derived_keys:
+                col_str += c + ", "
+            col_str = col_str[:-2] + ")"
 
-        values = "("
-        for v in list(entry.values()):
-            if v == None:
-                values += 'NULL, '
-            
-            else:
-                v = str(v)
-                if '"' in v:
-                    v = v.replace('"', "\\" + '"')
-                values += "\"" + str(v) + "\", "
+            in_str = "("
+
+            for c in derived_keys:
+                if entry[c] == None:
+                    in_str += "NULL, "
+                else:
+                    in_str += "\"" + str(entry[c]) + "\", "
+
+            self.cursor.execute("INSERT IGNORE INTO " + self.table_name \
+                + " " + col_str + "VALUES" + in_str[:-2] + ")")
+            self.db.commit()
+
+        else:
+            header = "("
+            for k in list(entry.keys()):
+                header += k + ", "
+
+            header = header[:-2] + ")"
+
+            values = "("
+            for v in list(entry.values()):
+                if v == None:
+                    values += 'NULL, '
+                
+                else:
+                    v = str(v)
+                    if '"' in v:
+                        v = v.replace('"', "\\" + '"')
+                    values += "\"" + str(v) + "\", "
     
 
-        values = values[:-2] + ")"
-        
-        self.cursor.execute("INSERT IGNORE INTO " + self.table_name + " " + header + " VALUES " + values)
-        self.db.commit()
-
-
-    def insert(self, entry):
-        """
-        Use this when adding entries after the table has already been created.
-        cols should be derived from something like 
-            crs.execute("SELECT * FROM " + table_name + " LIMIT 1;")
-        """
-
-        self.cursor.execute("SELECT * FROM " + self.table_name + " LIMIT 1;")
-        derived_keys = self.cursor.column_names
-
-        col_str = "("
-        for c in derived_keys:
-            col_str += c + ", "
-        col_str = col_str[:-2] + ")"
-
-        in_str = "("
-
-        for c in derived_keys:
-            if entry[c] == None:
-                in_str += "NULL, "
-            else:
-                in_str += "\"" + str(entry[c]) + "\", "
-
-        self.cursor.execute("INSERT IGNORE INTO " + self.table_name \
-            + " " + col_str + "VALUES" + in_str[:-2] + ")")
-        self.db.commit()
+            values = values[:-2] + ")"
+            
+            self.cursor.execute("INSERT IGNORE INTO " + self.table_name + " " + header + " VALUES " + values)
+            self.db.commit()
