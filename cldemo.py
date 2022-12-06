@@ -2,8 +2,14 @@
 EXAMPLE USAGE
 =============
 
-    $ python3 cldemo.py -hn <LOCALHOST> -u root -p <PWD> -n <DATABASE NAME>  
+    $ python3 cldemo.py -hn <LOCALHOST> -u root -p <PWD> -n <DATABASE NAME>
     -dla <DATALIST ACCESSOR> -url <URL> -t <TABLE NAME> -pk <PRIMARY KEY>
+    -y <YYYY-YYYY> -l <LINKING WORD>
+
+    Argument LINKING WORD assumes prior knowledge of JSON structure in which
+    one JSON contains a list of JSONs and a link to a subsequent related list
+    of JSONs, similar to a linked list. Needs to be passed in as an argument
+    since this is somewhat privileged information.
 """
 
 import argparse
@@ -28,6 +34,11 @@ parser.add_argument('-dla', '--dla', type=str,
                         + "JSON records.")
 parser.add_argument('-url', '--url', type=str,
                     help="URL of API being accessed, just copy and paste.")
+parser.add_argument('-y', '--years', type=str,
+                    help="Specify year (YYYY) of range of years (YYYY-YYYY)")
+parser.add_argument('-l', '--link_word', type=str,
+                    help="Because some returns link to additional lists of \
+                          JSON objects")
 
 args = parser.parse_args()
 
@@ -38,9 +49,10 @@ mydb = mysql.connector.connect(
     database=args.database_name
 )
 
-my_loader = Loader(db = mydb, primary_key = args.primary_key, 
-                   data_list_accessor = args.dla, 
-                   table_name=args.table_name, url = args.url)
+my_loader = Loader(db = mydb, primary_key = args.primary_key,
+                   data_list_accessor = args.dla,
+                   table_name=args.table_name, url = args.url,
+                   year_range = args.years,
+                   link_word = args.link_word)
 
 my_loader.mass_populate()
-
