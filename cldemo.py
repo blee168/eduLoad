@@ -27,6 +27,8 @@ parser.add_argument('-n', '--database_name', type=str, default="db",
                     help="MySQL database name")
 parser.add_argument('-pk', '--primary_key', type=str,
                     help="Primary key of table to be created")
+parser.add_argument('-k', '--api_key', type=str,
+                    help="API key")                    
 parser.add_argument('-t', '--table_name', type=str,
                     help="Table name")
 parser.add_argument('-dla', '--dla', type=str,
@@ -42,12 +44,16 @@ parser.add_argument('-l', '--link_word', type=str,
 
 args = parser.parse_args()
 
-mydb = mysql.connector.connect(
-    host=args.host_name,
-    user=args.username,
-    passwd=args.password,
-    database=args.database_name
-)
+try:
+    mydb = mysql.connector.connect(
+        host=args.host_name,
+        user=args.username,
+        passwd=args.password,
+        database=args.database_name
+    )
+except:
+    sys.exit("Did you start the MySQL server? \
+        Did you pass in the right credentials?")
 
 my_loader = Loader(db = mydb, primary_key = args.primary_key,
                    data_list_accessor = args.dla,

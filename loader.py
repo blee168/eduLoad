@@ -80,8 +80,22 @@ class Loader:
             data_list_accessor: string for specifying where in the JSON the
                 actual list of data JSON objects are
             table_name: string
+            link_word assumes prior knowledge of JSON structure in which
+            one JSON contains a list of JSONs and a link to a subsequent related list
+            of JSONs, similar to a linked list. Needs to be passed in as an argument
+            since this is somewhat privileged information.
         """
+
+        if table_name is None:
+            sys.exit("I need a table name.")
+
+        if url is None:
+            sys.exit("I need the URL of the API we are accessing.")
+
         self.db = db
+        
+        # It may be possible api_key is irrelevant, since this often gets
+        # baked into the URL itself...
         self.api_key = api_key
         self.table_name = table_name
         self.cursor = db.cursor(buffered = True)
@@ -97,8 +111,8 @@ class Loader:
 
         # TODO: I want to somehow divorce the code from a priori knowledge of
         # the structure of the JSON later, for example by passing a hierarchic
-        # path to the actual list of JSON data objects, rather than a single
-        # string.
+        # path (for example, a comma-separated list of words?) to the actual 
+        # list of JSON data objects, rather than a single string.
 
         self.get_data()
 
@@ -122,8 +136,11 @@ class Loader:
         self.data_chunk = loads(response.read())
         self.data = []
         self.data += self.data_chunk[self.data_list_accessor]
+        i = 2
         if self.link_word is not None:
             while self.data_chunk[self.link_word] is not None:
+                print("Adding chunk " + str(i))
+                i += 1
                 # update the URL
                 self.url = self.data_chunk[self.link_word]
                 # open the new request at the new URL
