@@ -120,6 +120,10 @@ class Loader:
             sys.exit("Dataset appears to be empty.")
         else:
             self.keys = list(self.data[0].keys())
+            for i in range(len(self.data)):
+                for k in list(self.data[i].keys()):
+                    if k not in self.keys:
+                        self.keys.append(k)
 
         try:
             self.cursor.execute("SELECT * FROM " + self.table_name + ";")
@@ -244,14 +248,18 @@ class Loader:
             in_str = "("
 
             for c in derived_keys:
-                if entry[c] == None:
+                if c not in entry.keys() or entry[c] == None:
                     in_str += "NULL, "
                 else:
                     in_str += "\"" + str(entry[c]) + "\", "
 
-            self.cursor.execute("INSERT IGNORE INTO " + self.table_name \
-                + " " + col_str + "VALUES" + in_str[:-2] + ")")
-            self.db.commit()
+
+            try:
+                self.cursor.execute("INSERT IGNORE INTO " + self.table_name \
+                    + " " + col_str + "VALUES" + in_str[:-2] + ")")
+                self.db.commit()
+            except:
+                print(entry)
 
         else:
             header = "("
