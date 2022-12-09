@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import mysql.connector
+import pickle
 import re
 import sys
 import threading
@@ -125,6 +126,9 @@ class Loader:
                     if k not in self.keys:
                         self.keys.append(k)
 
+        self.entry_problems = False
+        self.problematic_entries = []
+
         try:
             self.cursor.execute("SELECT * FROM " + self.table_name + ";")
             self.table_exists = True
@@ -217,15 +221,19 @@ class Loader:
                 self.url = self.url.replace(str(current_year), str(y))
                 self.get_data()
 
-                print("Now loading " + str(len(self.data)) + " entries " + \
-                      "associated with " + str(y) + " .")
+                print("Now attempting to load " + str(len(self.data)) + \
+                    " entries associated with " + str(y) + ".")
                 for i in tqdm(range(int(len(self.data)))):
                     self.insert(self.data[i])
 
         else:
-            print("Now loading " + str(len(self.data)) + " entries.")
+            print("Now attemping to load " + str(len(self.data)) + " entries.")
             for i in tqdm(range(int(len(self.data)))):
                 self.insert(self.data[i])
+        
+        if self.entry_problems:
+            self.export_problematic_entries()
+            print("There might be problems. Look out for a .pkl file.")
 
 
 
@@ -236,39 +244,32 @@ class Loader:
             crs.execute("SELECT * FROM " + table_name + " LIMIT 1;")
         INPUT: dict
         """
+
         if self.table_exists:
             self.cursor.execute("SELECT * FROM " + self.table_name + " LIMIT 1;")
             derived_keys = self.cursor.column_names
 
-            col_str = "("
+            header = "("
             for c in derived_keys:
-                col_str += c + ", "
-            col_str = col_str[:-2] + ")"
+                header += c + ", "
+            header = header[:-2] + ")"
 
-            in_str = "("
+            values = "("
 
             for c in derived_keys:
                 if c not in entry.keys() or entry[c] == None:
-                    in_str += "NULL, "
+                    values += "NULL, "
                 else:
-                    in_str += "\"" + str(entry[c]) + "\", "
-
-
-            try:
-                self.cursor.execute("INSERT IGNORE INTO " + self.table_name \
-                    + " " + col_str + "VALUES" + in_str[:-2] + ")")
-                self.db.commit()
-            except:
-                print(entry)
+                    values += "\"" + str(entry[c]) + "\", "
 
         else:
             header = "("
             for k in list(entry.keys()):
                 header += k + ", "
-
             header = header[:-2] + ")"
 
-            values = "("
+            values = ""
+
             for v in list(entry.values()):
                 if v == None:
                     values += 'NULL, '
@@ -280,7 +281,19 @@ class Loader:
                     values += "\"" + str(v) + "\", "
 
 
-            values = values[:-2] + ")"
+            values = values[:-2]
 
-            self.cursor.execute("INSERT IGNORE INTO " + self.table_name + " " + header + " VALUES " + values)
+        try:
+            self.cursor.execute("INSERT IGNORE INTO " + self.table_name \
+                + " " + header + "VALUES (" +  values + ");")
             self.db.commit()
+        except:
+            self.entry_problems = True
+            self.problematic_entries.append(entry)
+
+        self.db.commit()
+        
+    def export_problematic_entries(self):
+        if len(self.problematic_entries) != 0:
+            f = open("problematic_entries.pkl", "wb")
+            pickle.dump(self.problematic_entries, f)
